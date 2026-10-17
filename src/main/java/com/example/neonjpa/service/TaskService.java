@@ -1,9 +1,11 @@
-
 package com.example.neonjpa.service;
 
 import com.example.neonjpa.dto.TaskRequest;
 import com.example.neonjpa.dto.TaskResponse;
+import com.example.neonjpa.entity.AppUser;
 import com.example.neonjpa.entity.Task;
+import com.example.neonjpa.entity.TaskPriority;
+import com.example.neonjpa.repository.AppUserRepository;
 import com.example.neonjpa.repository.TaskRepository;
 
 import org.springframework.data.domain.Page;
@@ -17,34 +19,56 @@ import org.springframework.web.server.ResponseStatusException;
 @Transactional
 public class TaskService {
 
-    private final TaskRepository repository;
+    private final TaskRepository taskRepository;
+    private final AppUserRepository userRepository;
 
-    public TaskService(TaskRepository repository) {
-        this.repository = repository;
+    public TaskService(
+            TaskRepository taskRepository,
+            AppUserRepository userRepository) {
+        this.taskRepository = taskRepository;
+        this.userRepository = userRepository;
     }
 
-    public TaskResponse create(TaskRequest request) {
+    public TaskResponse create(TaskRequest request, String email) {
+        AppUser owner = getUser(email);
+
         Task task = new Task(request.title(), request.description());
+        task.setOwner(owner);
 
         if (request.completed() != null) {
             task.setCompleted(request.completed());
         }
 
-        return TaskResponse.from(repository.save(task));
+        task.setPriority(
+                request.priority() != null
+                        ? request.priority()
+                        : TaskPriority.MEDIUM
+        );
+        task.setDueDate(request.dueDate());
+
+        return TaskResponse.from(taskRepository.save(task));
     }
 
     @Transactional(readOnly = true)
-    public Page<TaskResponse> findAll(Pageable pageable) {
-        return repository.findAll(pageable).map(TaskResponse::from);
+    public Page<TaskResponse> findAll(
+            Pageable pageable, String email) {
+        AppUser owner = getUser(email);
+
+        return taskRepository
+                .findAllByOwner_Id(owner.getId(), pageable)
+                .map(TaskResponse::from);
     }
 
     @Transactional(readOnly = true)
-    public TaskResponse findById(Long id) {
-        return TaskResponse.from(getTask(id));
+    public TaskResponse findById(Long id, String email) {
+        AppUser owner = getUser(email);
+        return TaskResponse.from(getTask(id, owner.getId()));
     }
 
-    public TaskResponse update(Long id, TaskRequest request) {
-        Task task = getTask(id);
+    public TaskResponse update(
+            Long id, TaskRequest request, String email) {
+        AppUser owner = getUser(email);
+        Task task = getTask(id, owner.getId());
 
         task.setTitle(request.title());
         task.setDescription(request.description());
@@ -53,18 +77,33 @@ public class TaskService {
             task.setCompleted(request.completed());
         }
 
-        return TaskResponse.from(repository.save(task));
+        if (request.priority() != null) {
+            task.setPriority(request.priority());
+        }
+
+        // A missing/null due date clears the due date.
+        task.setDueDate(request.dueDate());
+
+        return TaskResponse.from(taskRepository.save(task));
     }
 
-    public void delete(Long id) {
-        repository.delete(getTask(id));
+    public void delete(Long id, String email) {
+        AppUser owner = getUser(email);
+        Task task = getTask(id, owner.getId());
+        taskRepository.delete(task);
     }
 
-    private Task getTask(Long id) {
-        return repository.findById(id)
-            .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "Task not found: " + id
-            ));
+    private AppUser getUser(String email) {
+        return userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED, "Authenticated user not found"
+                ));
+    }
+
+    private Task getTask(Long id, Long ownerId) {
+        return taskRepository.findByIdAndOwner_Id(id, ownerId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Task not found"
+                ));
     }
 }

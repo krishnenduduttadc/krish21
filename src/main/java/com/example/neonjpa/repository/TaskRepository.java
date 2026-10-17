@@ -1,14 +1,15 @@
-
 package com.example.neonjpa.repository;
 
 import com.example.neonjpa.entity.Task;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
+import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    List<Task> findByCompleted(boolean completed);
+    Page<Task> findAllByOwner_Id(Long ownerId, Pageable pageable);
 
-    List<Task> findByTitleContainingIgnoreCase(String title);
+    Optional<Task> findByIdAndOwner_Id(Long id, Long ownerId);
 }
