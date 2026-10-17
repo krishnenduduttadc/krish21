@@ -1,0 +1,476 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Manager | Spring Boot</title>
+
+    <style>
+        :root {
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #202938;
+            background: #f3f6fb;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+        }
+
+        header {
+            background: #183153;
+            color: white;
+            padding: 24px;
+        }
+
+        header h1 {
+            margin: 0 0 6px;
+            font-size: 26px;
+        }
+
+        header p {
+            margin: 0;
+            color: #d4e2f5;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 28px auto;
+            padding: 0 18px 40px;
+        }
+
+        .panel {
+            background: white;
+            border: 1px solid #e0e6ef;
+            border-radius: 12px;
+            padding: 22px;
+            margin-bottom: 22px;
+            box-shadow: 0 4px 16px #182b4810;
+        }
+
+        h2 {
+            font-size: 19px;
+            margin: 0 0 18px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            margin: 14px 0 6px;
+        }
+
+        input[type="text"], textarea {
+            display: block;
+            width: 100%;
+            padding: 11px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 7px;
+            font: inherit;
+        }
+
+        textarea {
+            min-height: 90px;
+            resize: vertical;
+        }
+
+        input:focus, textarea:focus {
+            outline: 2px solid #8bb9ff;
+            border-color: #3678d4;
+        }
+
+        .checkbox {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin: 15px 0;
+        }
+
+        .checkbox label { margin: 0; }
+
+        button {
+            border: 0;
+            border-radius: 7px;
+            padding: 10px 14px;
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        button:disabled { opacity: 0.6; cursor: wait; }
+
+        .primary { background: #245fc5; color: white; }
+        .secondary { background: #e8eef7; color: #23354e; }
+        .danger { background: #fee2e2; color: #991b1b; }
+
+        .toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        #status {
+            margin: 0 0 18px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+            overflow-wrap: anywhere;
+        }
+
+        #status.success { display: block; background: #dcfce7; color: #166534; }
+        #status.error { display: block; background: #fee2e2; color: #991b1b; }
+        #status.info { display: block; background: #dbeafe; color: #1e40af; }
+
+        .task {
+            border: 1px solid #e1e7ef;
+            border-radius: 9px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+
+        .task-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .task h3 { margin: 0 0 7px; font-size: 17px; }
+        .task p { margin: 0; color: #596579; white-space: pre-wrap; overflow-wrap: anywhere; }
+        .task.completed h3 { text-decoration: line-through; color: #64748b; }
+
+        .badge {
+            font-size: 12px;
+            white-space: nowrap;
+            padding: 5px 9px;
+            border-radius: 20px;
+            background: #fff0c2;
+            color: #854d0e;
+        }
+
+        .badge.done { background: #dcfce7; color: #166534; }
+
+        .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 14px;
+        }
+
+        .meta { font-size: 12px; color: #7b8798; margin-top: 12px; }
+        .empty { text-align: center; color: #64748b; padding: 26px 0; }
+        .count { color: #64748b; font-size: 14px; }
+
+        @media (max-width: 600px) {
+            header { padding: 20px 16px; }
+            main { margin-top: 18px; padding: 0 12px 30px; }
+            .panel { padding: 16px; }
+            .task-top { flex-direction: column; }
+        }
+    </style>
+</head>
+
+<body>
+<header>
+    <h1>Task Manager</h1>
+    <p>Spring Boot REST API · JPA · Neon PostgreSQL</p>
+</header>
+
+<main>
+    <div id="status" role="status" aria-live="polite"></div>
+
+    <section class="panel">
+        <h2 id="form-title">Create a task</h2>
+
+        <form id="task-form">
+            <label for="title">Task title *</label>
+            <input id="title" name="title" type="text"
+                   maxlength="150" required
+                   placeholder="e.g. Learn Spring Data JPA">
+
+            <label for="description">Description</label>
+            <textarea id="description" name="description"
+                      maxlength="1000"
+                      placeholder="What needs to be done?"></textarea>
+
+            <div class="checkbox">
+                <input id="completed" name="completed" type="checkbox">
+                <label for="completed">Mark as completed</label>
+            </div>
+
+            <button class="primary" id="save-button" type="submit">
+                Create Task
+            </button>
+            <button class="secondary" id="cancel-button"
+                    type="button" hidden>
+                Cancel Edit
+            </button>
+        </form>
+    </section>
+
+    <section class="panel">
+        <div class="toolbar">
+            <h2>Tasks</h2>
+            <button class="secondary" id="refresh-button" type="button">
+                Refresh
+            </button>
+        </div>
+
+        <p class="count" id="task-count">Loading tasks...</p>
+        <div id="task-list" aria-live="polite"></div>
+    </section>
+</main>
+
+<script>
+    const API = "/api/tasks";
+
+    const form = document.getElementById("task-form");
+    const titleInput = document.getElementById("title");
+    const descriptionInput = document.getElementById("description");
+    const completedInput = document.getElementById("completed");
+    const saveButton = document.getElementById("save-button");
+    const cancelButton = document.getElementById("cancel-button");
+    const taskList = document.getElementById("task-list");
+    const taskCount = document.getElementById("task-count");
+    const statusBox = document.getElementById("status");
+
+    let editingId = null;
+    let tasks = [];
+
+    function showStatus(message, type = "info") {
+        statusBox.textContent = message;
+        statusBox.className = type;
+    }
+
+    function clearStatus() {
+        statusBox.textContent = "";
+        statusBox.className = "";
+    }
+
+    async function request(url, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                ...(options.body ? { "Content-Type": "application/json" } : {}),
+                ...options.headers
+            }
+        });
+
+        if (!response.ok) {
+            const body = await response.text();
+            let message = body || `HTTP ${response.status}`;
+
+            try {
+                const parsed = JSON.parse(body);
+                message = parsed.detail || parsed.message || parsed.error || message;
+            } catch (_) {}
+
+            throw new Error(message);
+        }
+
+        if (response.status === 204) return null;
+        return response.json();
+    }
+
+    async function loadTasks() {
+        taskList.replaceChildren();
+        taskCount.textContent = "Loading tasks...";
+
+        try {
+            const page = await request(`${API}?page=0&size=100`);
+            tasks = page.content || [];
+            renderTasks();
+            clearStatus();
+        } catch (error) {
+            taskCount.textContent = "Could not load tasks.";
+            showStatus(
+                `Failed to load tasks: ${error.message}. Check that Spring Boot is running.`,
+                "error"
+            );
+        }
+    }
+
+    function renderTasks() {
+        taskList.replaceChildren();
+        taskCount.textContent =
+            `${tasks.length} task${tasks.length === 1 ? "" : "s"} on this page`;
+
+        if (tasks.length === 0) {
+            const empty = document.createElement("p");
+            empty.className = "empty";
+            empty.textContent = "No tasks yet. Create your first task above.";
+            taskList.append(empty);
+            return;
+        }
+
+        for (const task of tasks) {
+            const article = document.createElement("article");
+            article.className = `task${task.completed ? " completed" : ""}`;
+
+            const top = document.createElement("div");
+            top.className = "task-top";
+
+            const content = document.createElement("div");
+            const heading = document.createElement("h3");
+            heading.textContent = task.title;
+
+            const description = document.createElement("p");
+            description.textContent = task.description || "No description";
+
+            content.append(heading, description);
+
+            const badge = document.createElement("span");
+            badge.className = `badge${task.completed ? " done" : ""}`;
+            badge.textContent = task.completed ? "Completed" : "Pending";
+
+            top.append(content, badge);
+
+            const actions = document.createElement("div");
+            actions.className = "actions";
+
+            const editButton = document.createElement("button");
+            editButton.className = "secondary";
+            editButton.textContent = "Edit";
+            editButton.addEventListener("click", () => startEdit(task));
+
+            const toggleButton = document.createElement("button");
+            toggleButton.className = "secondary";
+            toggleButton.textContent = task.completed
+                ? "Mark pending" : "Mark complete";
+            toggleButton.addEventListener("click", () => toggleTask(task));
+
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "danger";
+            deleteButton.textContent = "Delete";
+            deleteButton.addEventListener("click", () => deleteTask(task));
+
+            actions.append(editButton, toggleButton, deleteButton);
+
+            const meta = document.createElement("div");
+            meta.className = "meta";
+            meta.textContent =
+                `ID: ${task.id} · Created: ${
+                    task.createdAt
+                        ? new Date(task.createdAt).toLocaleString()
+                        : "Unknown"
+                }`;
+
+            article.append(top, actions, meta);
+            taskList.append(article);
+        }
+    }
+
+    function resetForm() {
+        editingId = null;
+        form.reset();
+        document.getElementById("form-title").textContent = "Create a task";
+        saveButton.textContent = "Create Task";
+        cancelButton.hidden = true;
+    }
+
+    function startEdit(task) {
+        editingId = task.id;
+        titleInput.value = task.title;
+        descriptionInput.value = task.description || "";
+        completedInput.checked = task.completed;
+
+        document.getElementById("form-title").textContent =
+            `Edit task #${task.id}`;
+        saveButton.textContent = "Save Changes";
+        cancelButton.hidden = false;
+
+        titleInput.focus();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    form.addEventListener("submit", async event => {
+        event.preventDefault();
+        clearStatus();
+
+        const payload = {
+            title: titleInput.value.trim(),
+            description: descriptionInput.value.trim() || null,
+            completed: completedInput.checked
+        };
+
+        if (!payload.title) {
+            showStatus("Please enter a task title.", "error");
+            titleInput.focus();
+            return;
+        }
+
+        saveButton.disabled = true;
+
+        try {
+            if (editingId === null) {
+                await request(API, {
+                    method: "POST",
+                    body: JSON.stringify(payload)
+                });
+                showStatus("Task created successfully.", "success");
+            } else {
+                await request(`${API}/${editingId}`, {
+                    method: "PUT",
+                    body: JSON.stringify(payload)
+                });
+                showStatus("Task updated successfully.", "success");
+            }
+
+            resetForm();
+            await loadTasks();
+        } catch (error) {
+            showStatus(`Could not save task: ${error.message}`, "error");
+        } finally {
+            saveButton.disabled = false;
+        }
+    });
+
+    async function toggleTask(task) {
+        clearStatus();
+
+        try {
+            await request(`${API}/${task.id}`, {
+                method: "PUT",
+                body: JSON.stringify({
+                    title: task.title,
+                    description: task.description,
+                    completed: !task.completed
+                })
+            });
+
+            showStatus("Task status updated.", "success");
+            await loadTasks();
+        } catch (error) {
+            showStatus(`Could not update task: ${error.message}`, "error");
+        }
+    }
+
+    async function deleteTask(task) {
+        if (!window.confirm(`Delete task "${task.title}"?`)) return;
+
+        clearStatus();
+
+        try {
+            await request(`${API}/${task.id}`, { method: "DELETE" });
+
+            if (editingId === task.id) resetForm();
+
+            showStatus("Task deleted successfully.", "success");
+            await loadTasks();
+        } catch (error) {
+            showStatus(`Could not delete task: ${error.message}`, "error");
+        }
+    }
+
+    cancelButton.addEventListener("click", resetForm);
+    document.getElementById("refresh-button")
+        .addEventListener("click", loadTasks);
+
+    loadTasks();
+</script>
+</body>
+</html>
